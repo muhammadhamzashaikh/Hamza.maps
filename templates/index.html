@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live GPS Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f4;
+    }
+    #controls {
+      padding: 15px;
+      background: #222;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    #username {
+      padding: 10px;
+      border-radius: 4px;
+      border: none;
+      min-width: 200px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #28a745;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #218838;
+    }
+    #map {
+      height: 90vh;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div id="controls">
+  <input type="text" id="username" placeholder="Enter your name" />
+  <button onclick="sendMyLocation()">Send My Location</button>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([25, 66], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  let markers = {};
+
+  function sendMyLocation() {
+    const name = document.getElementById("username").value.trim();
+    if (!name) return alert("Enter your name!");
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        fetch('/send_location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, latitude: lat, longitude: lon })
+        }).then(res => res.json()).then(data => {
+          alert(data.message);
+        });
+      });
+    } else {
+      alert("Geolocation not supported.");
+    }
+  }
+
+  function updateMarkers() {
+    fetch('/locations')
+      .then(res => res.json())
+      .then(data => {
+        for (let m in markers) {
+          map.removeLayer(markers[m]);
+        }
+        markers = {};
+
+        data.forEach(([name, lat, lon, time]) => {
+          const marker = L.marker([lat, lon]).addTo(map);
+          marker.bindPopup(`<b>${name}</b><br>${time}`);
+          markers[name] = marker;
+        });
+      });
+  }
+
+  setInterval(updateMarkers, 5000); // update every 5 seconds
+  updateMarkers();
+</script>
+
+</body>
+</html>
